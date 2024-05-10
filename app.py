@@ -8,35 +8,55 @@ def connect():
     connection = None
     try:
         params = config()
-        print('Connecting to the postgreSQL database ...')
         connection = psycopg2.connect(**params)
-
-        # create a cursor
-        crsr = connection.cursor()
-        print('PostgreSQL database version: ')
-        crsr.execute('SELECT version()')
-        db_version = crsr.fetchone()
-        print(db_version)
-        crsr.close()
     except(Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
         if connection is not None:
             connection.close()
-            print('Database connection terminated.')
+            
 
 # routing the application
 @app.route("/")
 def application():
   return render_template('login.html')
 
+
+def check_credentials(username, password):
+    try:
+        # Get database connection settings from database.ini
+        params = config()
+
+        # Connect to the database
+        conn = psycopg2.connect(**params)
+
+        cursor = conn.cursor()
+
+        # Query the database to check if the credentials are valid
+        cursor.execute("SELECT * FROM users WHERE  u_name = %s AND  u_password = %s", (username, password))
+        user = cursor.fetchone()
+
+        # Close database connection
+        cursor.close()
+        conn.close()
+
+        return user is not None  # Return True if user exists, False otherwise
+
+    except (Exception, psycopg2.DatabaseError) as e:
+        print("Error connecting to the database:", e)
+        return False
+
+
 @app.route('/button_click', methods=['POST'])
 def button_click():
-    if request.method == 'POST':
-        # Perform some action when the button is clicked
-        print("Button clicked!")
-        # You can add more actions here, such as updating a database, sending a notification, etc.
-    return render_template('index.html')
+    username = request.form['u']
+    password = request.form['p']
+
+    if check_credentials(username, password):
+        return render_template('index.html')
+    else:
+        return "Invalid credentials.", 400
 
 if __name__ == "__main__":
   app.run(host='0.0.0.0', debug=True)
+    connect()
